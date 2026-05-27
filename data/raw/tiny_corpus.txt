@@ -1,0 +1,8 @@
+hello world
+hello pytorch
+hello transformer
+mini transformer lab
+we learn character tokenizer
+pytorch makes tensor training simple
+attention is the core of transformer
+language models predict the next token
