@@ -2,6 +2,7 @@ import pytest
 import torch
 
 from src.minitransformer.attention import (
+    MultiHeadSelfAttention,
     create_causal_mask,
     scaled_dot_product_attention,
 )
@@ -142,6 +143,106 @@ def test_causal_attention_weights_sum_to_one() -> None:
     mask = create_causal_mask(seq_len)
 
     _, attn_weights = scaled_dot_product_attention(q, k, v, mask=mask)
+
+    row_sums = attn_weights.sum(dim=-1)
+
+    assert torch.allclose(
+        row_sums,
+        torch.ones_like(row_sums),
+        atol=1e-6,
+    )
+
+
+def test_multi_head_self_attention_output_shape() -> None:
+    batch_size = 2
+    seq_len = 4
+    embed_dim = 32
+    num_heads = 4
+
+    x = torch.randn(batch_size, seq_len, embed_dim)
+
+    attention = MultiHeadSelfAttention(
+        embed_dim=embed_dim,
+        num_heads=num_heads,
+    )
+
+    output, attn_weights = attention(x)
+
+    assert output.shape == torch.Size([batch_size, seq_len, embed_dim])
+    assert attn_weights.shape == torch.Size(
+        [batch_size, num_heads, seq_len, seq_len]
+    )
+
+
+def test_multi_head_self_attention_head_dim() -> None:
+    attention = MultiHeadSelfAttention(embed_dim=32, num_heads=4)
+
+    assert attention.head_dim == 8
+    assert attention.embed_dim == 32
+    assert attention.num_heads == 4
+
+
+def test_multi_head_self_attention_rejects_invalid_embed_dim() -> None:
+    with pytest.raises(ValueError):
+        MultiHeadSelfAttention(embed_dim=30, num_heads=4)
+
+
+def test_multi_head_self_attention_rejects_invalid_input_dim() -> None:
+    batch_size = 2
+    seq_len = 4
+    wrong_embed_dim = 16
+
+    attention = MultiHeadSelfAttention(embed_dim=32, num_heads=4)
+    x = torch.randn(batch_size, seq_len, wrong_embed_dim)
+
+    with pytest.raises(ValueError):
+        attention(x)
+
+
+def test_multi_head_self_attention_with_causal_mask() -> None:
+    batch_size = 2
+    seq_len = 4
+    embed_dim = 32
+    num_heads = 4
+
+    x = torch.randn(batch_size, seq_len, embed_dim)
+    mask = create_causal_mask(seq_len)
+
+    attention = MultiHeadSelfAttention(
+        embed_dim=embed_dim,
+        num_heads=num_heads,
+    )
+
+    output, attn_weights = attention(x, mask=mask)
+
+    future_weights = torch.triu(attn_weights, diagonal=1)
+
+    assert output.shape == torch.Size([batch_size, seq_len, embed_dim])
+    assert attn_weights.shape == torch.Size(
+        [batch_size, num_heads, seq_len, seq_len]
+    )
+    assert torch.allclose(
+        future_weights,
+        torch.zeros_like(future_weights),
+        atol=1e-6,
+    )
+
+
+def test_multi_head_self_attention_weights_sum_to_one() -> None:
+    batch_size = 2
+    seq_len = 4
+    embed_dim = 32
+    num_heads = 4
+
+    x = torch.randn(batch_size, seq_len, embed_dim)
+    mask = create_causal_mask(seq_len)
+
+    attention = MultiHeadSelfAttention(
+        embed_dim=embed_dim,
+        num_heads=num_heads,
+    )
+
+    _, attn_weights = attention(x, mask=mask)
 
     row_sums = attn_weights.sum(dim=-1)
 
