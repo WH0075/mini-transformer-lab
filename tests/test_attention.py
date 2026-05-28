@@ -1,7 +1,10 @@
 import pytest
 import torch
 
-from src.minitransformer.attention import scaled_dot_product_attention
+from src.minitransformer.attention import (
+    create_causal_mask,
+    scaled_dot_product_attention,
+)
 
 
 def test_scaled_dot_product_attention_output_shape() -> None:
@@ -57,10 +60,13 @@ def test_scaled_dot_product_attention_with_mask() -> None:
 
     _, attn_weights = scaled_dot_product_attention(q, k, v, mask=mask)
 
-    mask_weights = attn_weights[:, :, 2]
+    masked_weights = attn_weights[:, :, 2]
 
-    assert torch.allclose(mask_weights, torch.zeros_like(mask_weights), atol=1e-6)
-    
+    assert torch.allclose(
+        masked_weights,
+        torch.zeros_like(masked_weights),
+        atol=1e-6,
+    )
 
 
 def test_scaled_dot_product_attention_rejects_invalid_qk_dim() -> None:
@@ -70,3 +76,77 @@ def test_scaled_dot_product_attention_rejects_invalid_qk_dim() -> None:
 
     with pytest.raises(ValueError):
         scaled_dot_product_attention(q, k, v)
+
+
+def test_create_causal_mask_shape() -> None:
+    seq_len = 4
+
+    mask = create_causal_mask(seq_len)
+
+    assert mask.shape == torch.Size([1, seq_len, seq_len])
+
+
+def test_create_causal_mask_values() -> None:
+    mask = create_causal_mask(4)
+
+    expected = torch.tensor(
+        [
+            [
+                [1.0, 0.0, 0.0, 0.0],
+                [1.0, 1.0, 0.0, 0.0],
+                [1.0, 1.0, 1.0, 0.0],
+                [1.0, 1.0, 1.0, 1.0],
+            ]
+        ]
+    )
+
+    assert torch.equal(mask, expected)
+
+
+def test_create_causal_mask_rejects_invalid_seq_len() -> None:
+    with pytest.raises(ValueError):
+        create_causal_mask(0)
+
+
+def test_causal_mask_blocks_future_attention() -> None:
+    batch_size = 2
+    seq_len = 4
+    hidden_dim = 8
+
+    q = torch.randn(batch_size, seq_len, hidden_dim)
+    k = torch.randn(batch_size, seq_len, hidden_dim)
+    v = torch.randn(batch_size, seq_len, hidden_dim)
+
+    mask = create_causal_mask(seq_len)
+
+    _, attn_weights = scaled_dot_product_attention(q, k, v, mask=mask)
+
+    future_weights = torch.triu(attn_weights, diagonal=1)
+
+    assert torch.allclose(
+        future_weights,
+        torch.zeros_like(future_weights),
+        atol=1e-6,
+    )
+
+
+def test_causal_attention_weights_sum_to_one() -> None:
+    batch_size = 2
+    seq_len = 4
+    hidden_dim = 8
+
+    q = torch.randn(batch_size, seq_len, hidden_dim)
+    k = torch.randn(batch_size, seq_len, hidden_dim)
+    v = torch.randn(batch_size, seq_len, hidden_dim)
+
+    mask = create_causal_mask(seq_len)
+
+    _, attn_weights = scaled_dot_product_attention(q, k, v, mask=mask)
+
+    row_sums = attn_weights.sum(dim=-1)
+
+    assert torch.allclose(
+        row_sums,
+        torch.ones_like(row_sums),
+        atol=1e-6,
+    )
