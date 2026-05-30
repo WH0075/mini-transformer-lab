@@ -16,7 +16,7 @@ def test_char_tokenizer_vocab_size() -> None:
     text = "hello"
     tokenizer = CharTokenizer(text)
 
-    assert tokenizer.volab_size == 4
+    assert tokenizer.vocab_size == 4
     assert set(tokenizer.chars) == {"h", "e", "l", "o"}
 
 

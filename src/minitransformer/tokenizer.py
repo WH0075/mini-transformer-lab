@@ -9,7 +9,7 @@ class CharTokenizer:
         self.chars = sorted(list(set(text)))
         self.stoi = {ch: idx for idx, ch in enumerate(self.chars)}
         self.itos = {idx: ch for idx, ch in enumerate(self.chars)}
-        self.volab_size = len(self.chars)
+        self.vocab_size = len(self.chars)
 
     def encode(self, text: str) -> list[int]:
         return [self.stoi[ch] for ch in text]
