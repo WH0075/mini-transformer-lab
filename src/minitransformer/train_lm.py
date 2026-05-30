@@ -191,10 +191,7 @@ def main() -> None:
             device=device,
         )
 
-        print(
-            f"Epoch [{epoch:03d}/{config['num_epochs']}], "
-            f"train_loss: {train_loss:.6f}"
-        )
+        
 
         if epoch == 1 or epoch % 10 == 0:
             sample = generate_text(
@@ -206,6 +203,10 @@ def main() -> None:
                 device=device,
             )
 
+            print(
+            f"Epoch [{epoch:03d}/{config['num_epochs']}], "
+            f"train_loss: {train_loss:.6f}"
+            )
             print("Generated sample:")
             print(sample)
             print("-" * 60)
